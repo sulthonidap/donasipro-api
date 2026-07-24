@@ -1,0 +1,28 @@
+# Binaries for SDKs and Apps
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary built using `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Environment files
+.env
+.env.local
+.env.*
+
+# Build output
+bin/
+dist/
+main
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
