@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"net/http"
+	"os"
+
 	"clean-api/database"
 	"clean-api/internal/delivery"
 	"clean-api/internal/repository"
@@ -47,6 +50,26 @@ func SetupRoutes() *gin.Engine {
 	branchHandler := delivery.NewBranchHandler(branchUsecase)
 	branchReqHandler := delivery.NewBranchRequestHandler(branchReqUsecase)
 	masterItemHandler := delivery.NewMasterItemHandler(masterItemUsecase)
+
+	// Health Check Route
+	healthHandler := func(c *gin.Context) {
+		dbStatus := "connected"
+		if database.DB == nil {
+			dbStatus = "disconnected"
+		} else {
+			sqlDB, err := database.DB.DB()
+			if err != nil || sqlDB.Ping() != nil {
+				dbStatus = "disconnected"
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":   "ok",
+			"database": dbStatus,
+			"port":     os.Getenv("PORT"),
+		})
+	}
+	r.GET("/health", healthHandler)
+	r.GET("/api/health", healthHandler)
 
 	// Public Routes
 	r.GET("/api/setup", authHandler.Setup)
