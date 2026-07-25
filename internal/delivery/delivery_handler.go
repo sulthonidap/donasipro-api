@@ -104,43 +104,50 @@ func (h *DeliveryHandler) UploadProof(c *gin.Context) {
 		return
 	}
 
-	file, err := c.FormFile("proof")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Proof photo is required (form-data field 'proof')"})
-		return
-	}
+	// Proof photo is optional — if no file provided, just mark as delivered
+	file, fileErr := c.FormFile("proof")
+	var proofPath string
 
-	// Create uploads directory if it does not exist
-	uploadsDir := "uploads"
-	if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
-		err = os.Mkdir(uploadsDir, 0755)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create uploads directory"})
+	if fileErr == nil && file != nil {
+		uploadsDir := "uploads"
+		if _, err := os.Stat(uploadsDir); os.IsNotExist(err) {
+			os.Mkdir(uploadsDir, 0755)
+		}
+		filename := strconv.FormatInt(time.Now().UnixNano(), 10) + filepath.Ext(file.Filename)
+		dst := filepath.Join(uploadsDir, filename)
+		if err := c.SaveUploadedFile(file, dst); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 			return
 		}
+		proofPath = "/uploads/" + filename
 	}
 
-	// Make a unique filename
-	filename := strconv.FormatInt(time.Now().UnixNano(), 10) + filepath.Ext(file.Filename)
-	dst := filepath.Join(uploadsDir, filename)
-
-	err = c.SaveUploadedFile(file, dst)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
-		return
-	}
-
-	// Save status as delivered and associate proof photo filename
-	err = h.deliveryUsecase.UploadProof(c.Request.Context(), uint(id), "/uploads/"+filename)
-	if err != nil {
-		// Clean up uploaded file if DB update fails
-		os.Remove(dst)
+	if err := h.deliveryUsecase.UploadProof(c.Request.Context(), uint(id), proofPath); err != nil {
+		if proofPath != "" {
+			os.Remove(filepath.Join("uploads", filepath.Base(proofPath)))
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":     "Proof uploaded and delivery completed successfully",
-		"proof_photo": "/uploads/" + filename,
+		"message":     "Delivery completed successfully",
+		"proof_photo": proofPath,
 	})
+}
+
+func (h *DeliveryHandler) CompleteWithoutProof(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid delivery ID"})
+		return
+	}
+
+	if err := h.deliveryUsecase.UploadProof(c.Request.Context(), uint(id), ""); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Delivery completed without proof photo"})
 }

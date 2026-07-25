@@ -10,12 +10,14 @@ import (
 type deliveryUsecase struct {
 	deliveryRepo  domain.DeliveryRepository
 	inventoryRepo domain.InventoryRepository
+	branchReqRepo domain.BranchRequestRepository
 }
 
-func NewDeliveryUsecase(deliveryRepo domain.DeliveryRepository, inventoryRepo domain.InventoryRepository) domain.DeliveryUsecase {
+func NewDeliveryUsecase(deliveryRepo domain.DeliveryRepository, inventoryRepo domain.InventoryRepository, branchReqRepo domain.BranchRequestRepository) domain.DeliveryUsecase {
 	return &deliveryUsecase{
 		deliveryRepo:  deliveryRepo,
 		inventoryRepo: inventoryRepo,
+		branchReqRepo: branchReqRepo,
 	}
 }
 
@@ -102,6 +104,29 @@ func (u *deliveryUsecase) UploadProof(ctx context.Context, id uint, proofFilenam
 		return err
 	}
 
-	// Update inventory item delivery status to delivered
-	return u.inventoryRepo.UpdateDeliveryStatus(ctx, delivery.InventoryID, domain.DeliveryDelivered)
+	// Update source inventory item delivery status to delivered
+	_ = u.inventoryRepo.UpdateDeliveryStatus(ctx, delivery.InventoryID, domain.DeliveryDelivered)
+
+	// If this delivery is linked to a branch request, create inventory at branch and complete request
+	if u.branchReqRepo != nil && delivery.BranchRequestID != nil {
+		req, reqErr := u.branchReqRepo.GetByID(ctx, *delivery.BranchRequestID)
+		if reqErr == nil && req.Status == domain.BranchReqApproved {
+			// Create inventory item at the destination branch
+			branchInv := domain.Inventory{
+				BranchID:         &req.BranchID,
+				ItemName:         req.ItemName,
+				Category:         req.Category,
+				Quantity:         req.Quantity,
+				Unit:             req.Unit,
+				VerifiedPhysical: true,
+				DeliveryStatus:   domain.DeliveryDelivered,
+			}
+			_ = u.inventoryRepo.Create(ctx, &branchInv)
+
+			// Mark branch request as completed
+			_ = u.branchReqRepo.UpdateStatus(ctx, req.ID, domain.BranchReqCompleted, nil)
+		}
+	}
+
+	return nil
 }

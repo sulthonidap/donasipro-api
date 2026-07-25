@@ -37,6 +37,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uint) (User, error)
 	Create(ctx context.Context, user *User) error
 	Update(ctx context.Context, user *User) error
+	Delete(ctx context.Context, id uint) error
 	Count(ctx context.Context) (int64, error)
 	ListByRole(ctx context.Context, role Role) ([]User, error)
 	ListAll(ctx context.Context) ([]User, error)
@@ -47,6 +48,7 @@ type UserUsecase interface {
 	GetByID(ctx context.Context, id uint) (User, error)
 	Setup(ctx context.Context) (string, error)
 	ConfigureUserRole(ctx context.Context, name, email, password string, role Role, branchID *uint) (User, error)
+	Delete(ctx context.Context, id uint) error
 	ListByRole(ctx context.Context, role Role) ([]User, error)
 	ListAll(ctx context.Context) ([]User, error)
 }

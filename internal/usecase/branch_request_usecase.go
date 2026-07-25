@@ -4,6 +4,7 @@ import (
 	"clean-api/domain"
 	"context"
 	"errors"
+	"fmt"
 )
 
 type branchRequestUsecase struct {
@@ -27,20 +28,31 @@ func NewBranchRequestUsecase(
 	}
 }
 
-func (u *branchRequestUsecase) CreateRequest(ctx context.Context, branchID, requestedBy uint, itemName string, category domain.InventoryCategory, quantity float64, unit, purpose string) (domain.BranchRequest, error) {
+func (u *branchRequestUsecase) CreateRequest(
+	ctx context.Context,
+	branchID, requestedBy uint,
+	itemName string,
+	category domain.InventoryCategory,
+	routineQuota, remainingStock, quantity float64,
+	unit, monthPeriod, applicantName, purpose string,
+) (domain.BranchRequest, error) {
 	if itemName == "" || quantity <= 0 {
 		return domain.BranchRequest{}, errors.New("nama barang dan jumlah wajib diisi")
 	}
 
 	req := domain.BranchRequest{
-		BranchID:    branchID,
-		RequestedBy: requestedBy,
-		ItemName:    itemName,
-		Category:    category,
-		Quantity:    quantity,
-		Unit:        unit,
-		Purpose:     purpose,
-		Status:      domain.BranchReqPending,
+		BranchID:       branchID,
+		RequestedBy:    requestedBy,
+		ItemName:       itemName,
+		Category:       category,
+		RoutineQuota:   routineQuota,
+		RemainingStock: remainingStock,
+		Quantity:       quantity,
+		Unit:           unit,
+		MonthPeriod:    monthPeriod,
+		ApplicantName:  applicantName,
+		Purpose:        purpose,
+		Status:         domain.BranchReqPending,
 	}
 
 	err := u.reqRepo.Create(ctx, &req)
@@ -55,7 +67,7 @@ func (u *branchRequestUsecase) ListRequests(ctx context.Context, branchID *uint)
 	return u.reqRepo.List(ctx, branchID)
 }
 
-func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requestID uint, courierID uint) error {
+func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requestID uint, courierID uint, approverName string) error {
 	req, err := u.reqRepo.GetByID(ctx, requestID)
 	if err != nil {
 		return errors.New("pengajuan cabang tidak ditemukan")
@@ -65,25 +77,45 @@ func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requ
 		return errors.New("hanya pengajuan status pending yang dapat disetujui")
 	}
 
-	// 1. Create temporary/permanent inventory item at Pusat for delivery assignment
-	invItem := domain.Inventory{
-		ItemName:         req.ItemName,
-		Category:         req.Category,
-		Quantity:         req.Quantity,
-		Unit:             req.Unit,
-		VerifiedPhysical: true,
-		DeliveryStatus:   domain.DeliveryAssigned,
-	}
-
-	err = u.inventoryRepo.Create(ctx, &invItem)
+	// 1. Find matching stock in Gudang Pusat
+	pusatItems, err := u.inventoryRepo.FindByNameInPusat(ctx, req.ItemName)
 	if err != nil {
-		return err
+		return errors.New("gagal memeriksa stok gudang pusat")
 	}
 
-	// 2. Create delivery task targeting the requesting Branch
-	branchName := "Cabang Regional"
-	branchAddress := "Alamat Cabang"
-	branchPhone := "-"
+	// Calculate total available Pusat stock
+	var totalPusatStock float64
+	for _, item := range pusatItems {
+		totalPusatStock += item.Quantity
+	}
+
+	if totalPusatStock < req.Quantity {
+		return fmt.Errorf("stok gudang pusat tidak mencukupi: tersedia %.0f %s, dibutuhkan %.0f %s",
+			totalPusatStock, req.Unit, req.Quantity, req.Unit)
+	}
+
+	// 2. Deduct from Pusat stock (FIFO: deduct from first matching items)
+	remaining := req.Quantity
+	var usedItemID uint
+	for _, item := range pusatItems {
+		if remaining <= 0 {
+			break
+		}
+		deduct := remaining
+		if item.Quantity < deduct {
+			deduct = item.Quantity
+		}
+		if err := u.inventoryRepo.DeductQuantity(ctx, item.ID, deduct); err != nil {
+			return errors.New("gagal mengurangi stok gudang pusat")
+		}
+		remaining -= deduct
+		usedItemID = item.ID
+	}
+
+	// 3. Create delivery task using the (last) Pusat inventory item
+	branchName := ""
+	branchAddress := ""
+	branchPhone := ""
 	if req.Branch != nil {
 		branchName = req.Branch.Name
 		branchAddress = req.Branch.Address
@@ -91,12 +123,13 @@ func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requ
 	}
 
 	delivery := domain.Delivery{
-		InventoryID:      invItem.ID,
-		RecipientName:    branchName,
+		InventoryID:     usedItemID,
+		BranchRequestID: &requestID,
+		RecipientName:   branchName,
 		RecipientAddress: branchAddress,
-		RecipientPhone:   branchPhone,
-		CourierID:        courierID,
-		Status:           domain.StatusDeliveryPending,
+		RecipientPhone:  branchPhone,
+		CourierID:       courierID,
+		Status:          domain.StatusDeliveryPending,
 	}
 
 	err = u.deliveryRepo.Create(ctx, &delivery)
@@ -104,7 +137,11 @@ func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requ
 		return err
 	}
 
-	// 3. Update branch request status to approved
+	if approverName != "" {
+		_ = u.reqRepo.UpdateApprover(ctx, requestID, approverName)
+	}
+
+	// 4. Update branch request status to approved
 	return u.reqRepo.UpdateStatus(ctx, requestID, domain.BranchReqApproved, &courierID)
 }
 

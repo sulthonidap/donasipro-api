@@ -35,12 +35,30 @@ func (h *InventoryHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
+type VerifyPhysicalInput struct {
+	ExpiryDate *string `json:"expiry_date"`
+}
+
 func (h *InventoryHandler) VerifyPhysical(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid inventory ID"})
 		return
+	}
+
+	var input VerifyPhysicalInput
+	_ = c.ShouldBindJSON(&input)
+
+	var expTime *time.Time
+	if input.ExpiryDate != nil && *input.ExpiryDate != "" {
+		parsed, err := time.Parse(time.RFC3339, *input.ExpiryDate)
+		if err != nil {
+			parsed, err = time.Parse("2006-01-02", *input.ExpiryDate)
+		}
+		if err == nil {
+			expTime = &parsed
+		}
 	}
 
 	// Get logged-in user ID
@@ -53,7 +71,7 @@ func (h *InventoryHandler) VerifyPhysical(c *gin.Context) {
 		verifiedByID = v
 	}
 
-	err = h.inventoryUsecase.VerifyPhysical(c.Request.Context(), uint(id), verifiedByID)
+	err = h.inventoryUsecase.VerifyPhysical(c.Request.Context(), uint(id), verifiedByID, expTime)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

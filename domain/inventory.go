@@ -39,12 +39,14 @@ type InventoryRepository interface {
 	GetByID(ctx context.Context, id uint) (Inventory, error)
 	List(ctx context.Context, category string, verifiedOnly bool) ([]Inventory, error)
 	Update(ctx context.Context, item *Inventory) error
-	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint) error
+	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error
 	UpdateDeliveryStatus(ctx context.Context, id uint, status DeliveryStatus) error
+	FindByNameInPusat(ctx context.Context, itemName string) ([]Inventory, error)
+	DeductQuantity(ctx context.Context, id uint, amount float64) error
 }
 
 type InventoryUsecase interface {
 	List(ctx context.Context, category string, verifiedOnly bool) ([]Inventory, error)
-	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint) error
+	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error
 	CreateItemDirectly(ctx context.Context, item *Inventory) (Inventory, error)
 }

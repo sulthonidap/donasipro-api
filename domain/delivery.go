@@ -16,6 +16,7 @@ const (
 type Delivery struct {
 	ID               uint                `gorm:"primaryKey" json:"id"`
 	InventoryID      uint                `json:"inventory_id"`
+	BranchRequestID  *uint               `json:"branch_request_id,omitempty"`
 	RecipientName    string              `json:"recipient_name"`
 	RecipientAddress string              `json:"recipient_address"`
 	RecipientPhone   string              `json:"recipient_phone"`

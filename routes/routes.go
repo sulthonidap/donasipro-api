@@ -38,7 +38,7 @@ func SetupRoutes() *gin.Engine {
 	userUsecase := usecase.NewUserUsecase(userRepo)
 	donationUsecase := usecase.NewDonationUsecase(donationRepo, masterItemRepo)
 	inventoryUsecase := usecase.NewInventoryUsecase(inventoryRepo, donationRepo, masterItemRepo)
-	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, inventoryRepo)
+	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, inventoryRepo, branchReqRepo)
 	branchUsecase := usecase.NewBranchUsecase(branchRepo)
 	branchReqUsecase := usecase.NewBranchRequestUsecase(branchReqRepo, deliveryRepo, inventoryRepo, branchRepo)
 	masterItemUsecase := usecase.NewMasterItemUsecase(masterItemRepo)
@@ -103,15 +103,15 @@ func SetupRoutes() *gin.Engine {
 		api.GET("/v1/delivery", deliveryHandler.ListAll)
 		api.GET("/v1/couriers", authHandler.ListCouriers)
 
-
 		// --- Role Specific Routes ---
-		
+
 		// Superadmin only
 		admin := api.Group("/v1/admin")
 		admin.Use(middleware.RoleMiddleware("superadmin"))
 		{
 			admin.POST("/setup-role", authHandler.SetupRole)
 			admin.GET("/users", authHandler.ListUsers)
+			admin.DELETE("/users/:id", authHandler.DeleteUser)
 			admin.POST("/branches", branchHandler.Create)
 			admin.PUT("/branches/:id", branchHandler.Update)
 			admin.DELETE("/branches/:id", branchHandler.Delete)
@@ -145,6 +145,7 @@ func SetupRoutes() *gin.Engine {
 			courier.GET("/delivery", deliveryHandler.ListForCourier)
 			courier.PATCH("/delivery/:id/start", deliveryHandler.StartDelivery)
 			courier.POST("/delivery/:id/proof", deliveryHandler.UploadProof)
+			courier.PATCH("/delivery/:id/complete-without-proof", deliveryHandler.CompleteWithoutProof)
 		}
 	}
 

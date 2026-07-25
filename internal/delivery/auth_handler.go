@@ -2,6 +2,7 @@ package delivery
 
 import (
 	"clean-api/domain"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -131,5 +132,22 @@ func (h *AuthHandler) ListUsers(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, users)
+}
+
+func (h *AuthHandler) DeleteUser(c *gin.Context) {
+	idStr := c.Param("id")
+	var id uint
+	if _, err := fmt.Sscanf(idStr, "%d", &id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	err := h.userUsecase.Delete(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
 

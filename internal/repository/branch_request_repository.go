@@ -54,3 +54,7 @@ func (r *branchRequestRepository) UpdateStatus(ctx context.Context, id uint, sta
 	}
 	return r.db.WithContext(ctx).Model(&domain.BranchRequest{}).Where("id = ?", id).Updates(updates).Error
 }
+
+func (r *branchRequestRepository) UpdateApprover(ctx context.Context, id uint, approverName string) error {
+	return r.db.WithContext(ctx).Model(&domain.BranchRequest{}).Where("id = ?", id).Update("approver_name", approverName).Error
+}

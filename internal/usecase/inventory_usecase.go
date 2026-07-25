@@ -26,7 +26,7 @@ func (u *inventoryUsecase) List(ctx context.Context, category string, verifiedOn
 	return u.inventoryRepo.List(ctx, category, verifiedOnly)
 }
 
-func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verifiedByID uint) error {
+func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error {
 	item, err := u.inventoryRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verified
 		return errors.New("item is already physically verified")
 	}
 
-	err = u.inventoryRepo.VerifyPhysical(ctx, id, verifiedByID)
+	err = u.inventoryRepo.VerifyPhysical(ctx, id, verifiedByID, expiryDate)
 	if err != nil {
 		return err
 	}

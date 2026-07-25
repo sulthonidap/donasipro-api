@@ -17,15 +17,20 @@ func NewBranchRequestHandler(ru domain.BranchRequestUsecase) *BranchRequestHandl
 }
 
 type CreateBranchReqInput struct {
-	ItemName string                   `json:"item_name" binding:"required"`
-	Category domain.InventoryCategory `json:"category" binding:"required"`
-	Quantity float64                  `json:"quantity" binding:"required"`
-	Unit     string                   `json:"unit" binding:"required"`
-	Purpose  string                   `json:"purpose"`
+	ItemName       string                   `json:"item_name" binding:"required"`
+	Category       domain.InventoryCategory `json:"category" binding:"required"`
+	RoutineQuota   float64                  `json:"routine_quota"`
+	RemainingStock float64                  `json:"remaining_stock"`
+	Quantity       float64                  `json:"quantity" binding:"required"`
+	Unit           string                   `json:"unit" binding:"required"`
+	MonthPeriod    string                   `json:"month_period"`
+	ApplicantName  string                   `json:"applicant_name"`
+	Purpose        string                   `json:"purpose"`
 }
 
 type ApproveBranchReqInput struct {
-	CourierID uint `json:"courier_id" binding:"required"`
+	CourierID    uint   `json:"courier_id" binding:"required"`
+	ApproverName string `json:"approver_name"`
 }
 
 func (h *BranchRequestHandler) Create(c *gin.Context) {
@@ -35,12 +40,24 @@ func (h *BranchRequestHandler) Create(c *gin.Context) {
 		return
 	}
 
-	userIDVal, exists := c.Get("userID")
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		userIDVal, exists = c.Get("userID")
+	}
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
-	requestedBy := userIDVal.(uint)
+
+	var requestedBy uint
+	switch v := userIDVal.(type) {
+	case float64:
+		requestedBy = uint(v)
+	case uint:
+		requestedBy = v
+	case int:
+		requestedBy = uint(v)
+	}
 
 	// Retrieve user's branch_id if available, or allow explicit branch_id
 	var branchID uint = 1
@@ -56,8 +73,12 @@ func (h *BranchRequestHandler) Create(c *gin.Context) {
 		requestedBy,
 		input.ItemName,
 		input.Category,
+		input.RoutineQuota,
+		input.RemainingStock,
 		input.Quantity,
 		input.Unit,
+		input.MonthPeriod,
+		input.ApplicantName,
 		input.Purpose,
 	)
 	if err != nil {
@@ -100,7 +121,7 @@ func (h *BranchRequestHandler) Approve(c *gin.Context) {
 		return
 	}
 
-	err = h.reqUsecase.ApproveAndAssignCourier(c.Request.Context(), uint(reqID), input.CourierID)
+	err = h.reqUsecase.ApproveAndAssignCourier(c.Request.Context(), uint(reqID), input.CourierID, input.ApproverName)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

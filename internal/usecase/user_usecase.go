@@ -126,6 +126,10 @@ func (u *userUsecase) ConfigureUserRole(ctx context.Context, name, email, passwo
 	return user, nil
 }
 
+func (u *userUsecase) Delete(ctx context.Context, id uint) error {
+	return u.userRepo.Delete(ctx, id)
+}
+
 func (u *userUsecase) ListByRole(ctx context.Context, role domain.Role) ([]domain.User, error) {
 	return u.userRepo.ListByRole(ctx, role)
 }
