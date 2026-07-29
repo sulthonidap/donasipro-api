@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -37,7 +38,8 @@ func (u *donationUsecase) Submit(ctx context.Context, donation *domain.Donation)
 		for i := range donation.Items {
 			donation.Items[i].VerifiedPhysical = false
 			donation.Items[i].DeliveryStatus = domain.DeliveryUnassigned
-			descParts = append(descParts, fmt.Sprintf("%.1f %s %s", donation.Items[i].Quantity, donation.Items[i].Unit, donation.Items[i].ItemName))
+			qtyStr := strconv.FormatFloat(donation.Items[i].Quantity, 'f', -1, 64)
+			descParts = append(descParts, fmt.Sprintf("%s %s %s", qtyStr, donation.Items[i].Unit, donation.Items[i].ItemName))
 
 			// Auto-register to Master Item Catalog if item name is not in catalog yet
 			if u.masterItemRepo != nil && donation.Items[i].ItemName != "" {

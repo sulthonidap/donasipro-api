@@ -41,6 +41,30 @@ func (h *MasterItemHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, created)
 }
 
+type BulkCreateMasterItemInput struct {
+	Items []domain.MasterItem `json:"items"`
+}
+
+func (h *MasterItemHandler) BulkCreate(c *gin.Context) {
+	var input BulkCreateMasterItemInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(input.Items) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada barang untuk diimport"})
+		return
+	}
+
+	result, err := h.masterItemUsecase.BulkCreate(c.Request.Context(), input.Items)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *MasterItemHandler) Update(c *gin.Context) {
 	idParam := c.Param("id")
 	id, err := strconv.ParseUint(idParam, 10, 64)

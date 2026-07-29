@@ -31,4 +31,17 @@ type MasterItemUsecase interface {
 	Delete(ctx context.Context, id uint) error
 	GetByID(ctx context.Context, id uint) (MasterItem, error)
 	List(ctx context.Context) ([]MasterItem, error)
+	BulkCreate(ctx context.Context, items []MasterItem) (MasterItemBulkResult, error)
+}
+
+// MasterItemBulkResult reports what happened for each row of a bulk import
+// (e.g. from an uploaded spreadsheet), since some rows may be skipped as duplicates.
+type MasterItemBulkResult struct {
+	Created []MasterItem     `json:"created"`
+	Skipped []MasterItemSkip `json:"skipped"`
+}
+
+type MasterItemSkip struct {
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
 }

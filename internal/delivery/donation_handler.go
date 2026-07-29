@@ -17,10 +17,11 @@ func NewDonationHandler(du domain.DonationUsecase) *DonationHandler {
 }
 
 type DonationItemInput struct {
-	ItemName string                   `json:"item_name" binding:"required"`
-	Category domain.InventoryCategory `json:"category" binding:"required"`
-	Quantity float64                  `json:"quantity" binding:"required"`
-	Unit     string                   `json:"unit" binding:"required"`
+	ItemName   string                   `json:"item_name" binding:"required"`
+	Category   domain.InventoryCategory `json:"category" binding:"required"`
+	Quantity   float64                  `json:"quantity" binding:"required"`
+	Unit       string                   `json:"unit" binding:"required"`
+	ExpiryDate *string                  `json:"expiry_date"` // donor-claimed, still re-verified by logistics
 }
 
 type SubmitDonationInput struct {
@@ -64,10 +65,11 @@ func (h *DonationHandler) Submit(c *gin.Context) {
 		donation.Items = make([]domain.Inventory, len(input.Items))
 		for i, item := range input.Items {
 			donation.Items[i] = domain.Inventory{
-				ItemName: item.ItemName,
-				Category: item.Category,
-				Quantity: item.Quantity,
-				Unit:     item.Unit,
+				ItemName:   item.ItemName,
+				Category:   item.Category,
+				Quantity:   item.Quantity,
+				Unit:       item.Unit,
+				ExpiryDate: parseExpiryDate(item.ExpiryDate),
 			}
 		}
 	}

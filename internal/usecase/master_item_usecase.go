@@ -4,6 +4,9 @@ import (
 	"clean-api/domain"
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"time"
 )
 
 type masterItemUsecase struct {
@@ -72,4 +75,44 @@ func (u *masterItemUsecase) GetByID(ctx context.Context, id uint) (domain.Master
 
 func (u *masterItemUsecase) List(ctx context.Context) ([]domain.MasterItem, error) {
 	return u.masterItemRepo.List(ctx)
+}
+
+func (u *masterItemUsecase) BulkCreate(ctx context.Context, items []domain.MasterItem) (domain.MasterItemBulkResult, error) {
+	result := domain.MasterItemBulkResult{}
+
+	for i, item := range items {
+		name := strings.TrimSpace(item.Name)
+		if name == "" {
+			result.Skipped = append(result.Skipped, domain.MasterItemSkip{Name: item.Name, Reason: "Nama barang kosong"})
+			continue
+		}
+		if item.Category == "" {
+			result.Skipped = append(result.Skipped, domain.MasterItemSkip{Name: name, Reason: "Kategori belum dipilih"})
+			continue
+		}
+		if _, err := u.masterItemRepo.GetByName(ctx, name); err == nil {
+			result.Skipped = append(result.Skipped, domain.MasterItemSkip{Name: name, Reason: "Sudah ada di katalog"})
+			continue
+		}
+
+		unit := item.Unit
+		if unit == "" {
+			unit = "Pcs"
+		}
+
+		newItem := domain.MasterItem{
+			SKUCode:     fmt.Sprintf("SKU-BULK-%d-%d", time.Now().UnixNano()%1000000, i),
+			Name:        name,
+			Category:    item.Category,
+			Unit:        unit,
+			Description: item.Description,
+		}
+		if err := u.masterItemRepo.Create(ctx, &newItem); err != nil {
+			result.Skipped = append(result.Skipped, domain.MasterItemSkip{Name: name, Reason: "Gagal disimpan: " + err.Error()})
+			continue
+		}
+		result.Created = append(result.Created, newItem)
+	}
+
+	return result, nil
 }

@@ -136,6 +136,7 @@ func SetupRoutes() *gin.Engine {
 			logistics.PATCH("/branch-requests/:id/approve", branchReqHandler.Approve)
 			logistics.PATCH("/branch-requests/:id/reject", branchReqHandler.Reject)
 			logistics.POST("/master-items", masterItemHandler.Create)
+			logistics.POST("/master-items/bulk", masterItemHandler.BulkCreate)
 			logistics.PUT("/master-items/:id", masterItemHandler.Update)
 		}
 
