@@ -34,6 +34,14 @@ type Inventory struct {
 	UpdatedAt        time.Time         `json:"updated_at"`
 }
 
+// InventoryBatch represents one split of a pending inventory line during
+// physical verification, when packages in the same donation line turn out
+// to have different expiry dates.
+type InventoryBatch struct {
+	Quantity   float64
+	ExpiryDate *time.Time
+}
+
 type InventoryRepository interface {
 	Create(ctx context.Context, item *Inventory) error
 	GetByID(ctx context.Context, id uint) (Inventory, error)
@@ -48,5 +56,6 @@ type InventoryRepository interface {
 type InventoryUsecase interface {
 	List(ctx context.Context, category string, verifiedOnly bool) ([]Inventory, error)
 	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error
+	VerifyPhysicalSplit(ctx context.Context, id uint, verifiedByID uint, batches []InventoryBatch) ([]Inventory, error)
 	CreateItemDirectly(ctx context.Context, item *Inventory) (Inventory, error)
 }

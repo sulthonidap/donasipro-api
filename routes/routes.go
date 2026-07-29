@@ -131,6 +131,7 @@ func SetupRoutes() *gin.Engine {
 		{
 			logistics.POST("/inventory", inventoryHandler.CreateDirectly)
 			logistics.PATCH("/inventory/:id/verify", inventoryHandler.VerifyPhysical)
+			logistics.PATCH("/inventory/:id/verify-split", inventoryHandler.VerifyPhysicalSplit)
 			logistics.POST("/delivery", deliveryHandler.Create) // Assign delivery
 			logistics.PATCH("/branch-requests/:id/approve", branchReqHandler.Approve)
 			logistics.PATCH("/branch-requests/:id/reject", branchReqHandler.Reject)
