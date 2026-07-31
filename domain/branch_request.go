@@ -34,6 +34,7 @@ type BranchRequest struct {
 	Status         BranchRequestStatus `json:"status" gorm:"default:'pending'"`
 	CourierID      *uint               `json:"courier_id,omitempty"`
 	Courier        *User               `json:"courier,omitempty" gorm:"foreignKey:CourierID"`
+	ApprovedAt     *time.Time          `json:"approved_at,omitempty"`
 	CreatedAt      time.Time           `json:"created_at"`
 	UpdatedAt      time.Time           `json:"updated_at"`
 }
@@ -44,12 +45,14 @@ type BranchRequestRepository interface {
 	List(ctx context.Context, branchID *uint) ([]BranchRequest, error)
 	UpdateStatus(ctx context.Context, id uint, status BranchRequestStatus, courierID *uint) error
 	UpdateApprover(ctx context.Context, id uint, approverName string) error
+	Delete(ctx context.Context, id uint) error
 }
 
 type BranchRequestUsecase interface {
 	CreateRequest(ctx context.Context, branchID, requestedBy uint, itemName string, category InventoryCategory, routineQuota, remainingStock, quantity float64, unit, monthPeriod, applicantName, purpose string) (BranchRequest, error)
 	ListRequests(ctx context.Context, branchID *uint) ([]BranchRequest, error)
-	ApproveAndAssignCourier(ctx context.Context, requestID uint, courierID uint, approverName string) error
+	ApproveAndAssignCourier(ctx context.Context, requestID uint, courierID uint, approverName string, approverID uint) error
 	RejectRequest(ctx context.Context, requestID uint) error
 	CompleteRequest(ctx context.Context, requestID uint) error
+	DeleteRequest(ctx context.Context, requestID uint) error
 }

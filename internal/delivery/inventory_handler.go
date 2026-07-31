@@ -173,7 +173,7 @@ func (h *InventoryHandler) CreateDirectly(c *gin.Context) {
 		ExpiryDate: expTime,
 	}
 
-	res, err := h.inventoryUsecase.CreateItemDirectly(c.Request.Context(), &item)
+	res, err := h.inventoryUsecase.CreateItemDirectly(c.Request.Context(), &item, userIDFromContext(c))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

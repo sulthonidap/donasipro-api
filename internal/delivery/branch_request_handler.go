@@ -121,13 +121,45 @@ func (h *BranchRequestHandler) Approve(c *gin.Context) {
 		return
 	}
 
-	err = h.reqUsecase.ApproveAndAssignCourier(c.Request.Context(), uint(reqID), input.CourierID, input.ApproverName)
+	userIDVal, exists := c.Get("user_id")
+	if !exists {
+		userIDVal, exists = c.Get("userID")
+	}
+	var approverID uint
+	if exists {
+		switch v := userIDVal.(type) {
+		case float64:
+			approverID = uint(v)
+		case uint:
+			approverID = v
+		case int:
+			approverID = uint(v)
+		}
+	}
+
+	err = h.reqUsecase.ApproveAndAssignCourier(c.Request.Context(), uint(reqID), input.CourierID, input.ApproverName, approverID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pengajuan disetujui & tugas kurir berhasil dibuat"})
+}
+
+func (h *BranchRequestHandler) Delete(c *gin.Context) {
+	idParam := c.Param("id")
+	reqID, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request ID"})
+		return
+	}
+
+	if err := h.reqUsecase.DeleteRequest(c.Request.Context(), uint(reqID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pengajuan cabang berhasil dihapus"})
 }
 
 func (h *BranchRequestHandler) Reject(c *gin.Context) {

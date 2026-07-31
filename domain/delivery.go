@@ -16,6 +16,10 @@ const (
 type Delivery struct {
 	ID               uint                `gorm:"primaryKey" json:"id"`
 	InventoryID      uint                `json:"inventory_id"`
+	// Quantity being delivered in this task. Recorded independently of the source
+	// Inventory row's live quantity, since a branch request can be fulfilled by
+	// deducting from several source rows (see ApproveAndAssignCourier).
+	Quantity         float64             `json:"quantity"`
 	BranchRequestID  *uint               `json:"branch_request_id,omitempty"`
 	RecipientName    string              `json:"recipient_name"`
 	RecipientAddress string              `json:"recipient_address"`

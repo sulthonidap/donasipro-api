@@ -12,6 +12,7 @@ type branchRequestUsecase struct {
 	deliveryRepo  domain.DeliveryRepository
 	inventoryRepo domain.InventoryRepository
 	branchRepo    domain.BranchRepository
+	movementRepo  domain.InventoryMovementRepository
 }
 
 func NewBranchRequestUsecase(
@@ -19,13 +20,22 @@ func NewBranchRequestUsecase(
 	deliveryRepo domain.DeliveryRepository,
 	inventoryRepo domain.InventoryRepository,
 	branchRepo domain.BranchRepository,
+	movementRepo domain.InventoryMovementRepository,
 ) domain.BranchRequestUsecase {
 	return &branchRequestUsecase{
 		reqRepo:       reqRepo,
 		deliveryRepo:  deliveryRepo,
 		inventoryRepo: inventoryRepo,
 		branchRepo:    branchRepo,
+		movementRepo:  movementRepo,
 	}
+}
+
+func (u *branchRequestUsecase) recordMovement(ctx context.Context, m domain.InventoryMovement) {
+	if u.movementRepo == nil {
+		return
+	}
+	_ = u.movementRepo.Create(ctx, &m)
 }
 
 func (u *branchRequestUsecase) CreateRequest(
@@ -67,7 +77,7 @@ func (u *branchRequestUsecase) ListRequests(ctx context.Context, branchID *uint)
 	return u.reqRepo.List(ctx, branchID)
 }
 
-func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requestID uint, courierID uint, approverName string) error {
+func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requestID uint, courierID uint, approverName string, approverID uint) error {
 	req, err := u.reqRepo.GetByID(ctx, requestID)
 	if err != nil {
 		return errors.New("pengajuan cabang tidak ditemukan")
@@ -94,7 +104,15 @@ func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requ
 			totalPusatStock, req.Unit, req.Quantity, req.Unit)
 	}
 
-	// 2. Deduct from Pusat stock (FIFO: deduct from first matching items)
+	branchLabel := "Cabang"
+	if req.Branch != nil && req.Branch.Name != "" {
+		branchLabel = req.Branch.Name
+	}
+
+	// 2. Deduct from Pusat stock (FIFO: deduct from first matching items).
+	// A single request can drain more than one source row; every row that gets
+	// touched must be marked "assigned" so it can't be silently double-booked
+	// later via the manual "Buat Pengiriman" flow (which only checks delivery_status).
 	remaining := req.Quantity
 	var usedItemID uint
 	for _, item := range pusatItems {
@@ -108,6 +126,22 @@ func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requ
 		if err := u.inventoryRepo.DeductQuantity(ctx, item.ID, deduct); err != nil {
 			return errors.New("gagal mengurangi stok gudang pusat")
 		}
+		if err := u.inventoryRepo.UpdateDeliveryStatus(ctx, item.ID, domain.DeliveryAssigned); err != nil {
+			return errors.New("gagal memperbarui status pengiriman stok gudang pusat")
+		}
+		itemID := item.ID
+		u.recordMovement(ctx, domain.InventoryMovement{
+			InventoryID:     &itemID,
+			ItemName:        item.ItemName,
+			Category:        item.Category,
+			Unit:            item.Unit,
+			Direction:       domain.MovementOut,
+			Quantity:        deduct,
+			Source:          domain.SourceBranchRequest,
+			BranchRequestID: &requestID,
+			ActorID:         &approverID,
+			Note:            fmt.Sprintf("Disetujui untuk %s", branchLabel),
+		})
 		remaining -= deduct
 		usedItemID = item.ID
 	}
@@ -124,6 +158,7 @@ func (u *branchRequestUsecase) ApproveAndAssignCourier(ctx context.Context, requ
 
 	delivery := domain.Delivery{
 		InventoryID:     usedItemID,
+		Quantity:        req.Quantity,
 		BranchRequestID: &requestID,
 		RecipientName:   branchName,
 		RecipientAddress: branchAddress,
@@ -181,4 +216,11 @@ func (u *branchRequestUsecase) CompleteRequest(ctx context.Context, requestID ui
 	}
 
 	return u.reqRepo.UpdateStatus(ctx, requestID, domain.BranchReqCompleted, nil)
+}
+
+func (u *branchRequestUsecase) DeleteRequest(ctx context.Context, requestID uint) error {
+	if _, err := u.reqRepo.GetByID(ctx, requestID); err != nil {
+		return errors.New("pengajuan cabang tidak ditemukan")
+	}
+	return u.reqRepo.Delete(ctx, requestID)
 }

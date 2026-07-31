@@ -41,6 +41,7 @@ func Migrate() {
 		&domain.Delivery{},
 		&domain.BranchRequest{},
 		&domain.MasterItem{},
+		&domain.InventoryMovement{},
 	)
 	if err != nil {
 		log.Fatal("Migration failed:", err)

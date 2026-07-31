@@ -3,6 +3,7 @@ package repository
 import (
 	"clean-api/domain"
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -52,9 +53,16 @@ func (r *branchRequestRepository) UpdateStatus(ctx context.Context, id uint, sta
 	if courierID != nil {
 		updates["courier_id"] = courierID
 	}
+	if status == domain.BranchReqApproved {
+		updates["approved_at"] = time.Now()
+	}
 	return r.db.WithContext(ctx).Model(&domain.BranchRequest{}).Where("id = ?", id).Updates(updates).Error
 }
 
 func (r *branchRequestRepository) UpdateApprover(ctx context.Context, id uint, approverName string) error {
 	return r.db.WithContext(ctx).Model(&domain.BranchRequest{}).Where("id = ?", id).Update("approver_name", approverName).Error
+}
+
+func (r *branchRequestRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&domain.BranchRequest{}, id).Error
 }

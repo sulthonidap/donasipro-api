@@ -13,14 +13,26 @@ type inventoryUsecase struct {
 	inventoryRepo  domain.InventoryRepository
 	donationRepo   domain.DonationRepository
 	masterItemRepo domain.MasterItemRepository
+	movementRepo   domain.InventoryMovementRepository
 }
 
-func NewInventoryUsecase(inventoryRepo domain.InventoryRepository, donationRepo domain.DonationRepository, masterItemRepo domain.MasterItemRepository) domain.InventoryUsecase {
+func NewInventoryUsecase(inventoryRepo domain.InventoryRepository, donationRepo domain.DonationRepository, masterItemRepo domain.MasterItemRepository, movementRepo domain.InventoryMovementRepository) domain.InventoryUsecase {
 	return &inventoryUsecase{
 		inventoryRepo:  inventoryRepo,
 		donationRepo:   donationRepo,
 		masterItemRepo: masterItemRepo,
+		movementRepo:   movementRepo,
 	}
+}
+
+// recordMovement writes an audit-log entry for a stock in/out event. Failures
+// are logged but never block the underlying stock operation that already
+// succeeded — the ledger is a record of truth, not a gate.
+func (u *inventoryUsecase) recordMovement(ctx context.Context, m domain.InventoryMovement) {
+	if u.movementRepo == nil {
+		return
+	}
+	_ = u.movementRepo.Create(ctx, &m)
 }
 
 func (u *inventoryUsecase) List(ctx context.Context, category string, verifiedOnly bool) ([]domain.Inventory, error) {
@@ -41,6 +53,19 @@ func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verified
 	if err != nil {
 		return err
 	}
+
+	u.recordMovement(ctx, domain.InventoryMovement{
+		InventoryID: &id,
+		ItemName:    item.ItemName,
+		Category:    item.Category,
+		Unit:        item.Unit,
+		Direction:   domain.MovementIn,
+		Quantity:    item.Quantity,
+		Source:      domain.SourceDonation,
+		BranchID:    item.BranchID,
+		DonationID:  item.DonationID,
+		ActorID:     &verifiedByID,
+	})
 
 	if item.DonationID != nil {
 		u.maybeCompleteDonationVerification(ctx, *item.DonationID)
@@ -77,15 +102,30 @@ func (u *inventoryUsecase) VerifyPhysicalSplit(ctx context.Context, id uint, ver
 	}
 
 	result := make([]domain.Inventory, 0, len(batches))
+	now := time.Now()
 
 	item.Quantity = batches[0].Quantity
 	item.ExpiryDate = batches[0].ExpiryDate
 	item.VerifiedPhysical = true
 	item.VerifiedByID = &verifiedByID
+	item.VerifiedAt = &now
 	if err := u.inventoryRepo.Update(ctx, &item); err != nil {
 		return nil, err
 	}
 	result = append(result, item)
+	u.recordMovement(ctx, domain.InventoryMovement{
+		InventoryID: &item.ID,
+		ItemName:    item.ItemName,
+		Category:    item.Category,
+		Unit:        item.Unit,
+		Direction:   domain.MovementIn,
+		Quantity:    item.Quantity,
+		Source:      domain.SourceDonation,
+		BranchID:    item.BranchID,
+		DonationID:  item.DonationID,
+		ActorID:     &verifiedByID,
+		Note:        "Batch split saat verifikasi fisik",
+	})
 
 	for _, b := range batches[1:] {
 		newItem := domain.Inventory{
@@ -97,6 +137,7 @@ func (u *inventoryUsecase) VerifyPhysicalSplit(ctx context.Context, id uint, ver
 			Unit:             item.Unit,
 			VerifiedPhysical: true,
 			VerifiedByID:     &verifiedByID,
+			VerifiedAt:       &now,
 			DeliveryStatus:   domain.DeliveryUnassigned,
 			ExpiryDate:       b.ExpiryDate,
 		}
@@ -104,6 +145,19 @@ func (u *inventoryUsecase) VerifyPhysicalSplit(ctx context.Context, id uint, ver
 			return nil, err
 		}
 		result = append(result, newItem)
+		u.recordMovement(ctx, domain.InventoryMovement{
+			InventoryID: &newItem.ID,
+			ItemName:    newItem.ItemName,
+			Category:    newItem.Category,
+			Unit:        newItem.Unit,
+			Direction:   domain.MovementIn,
+			Quantity:    newItem.Quantity,
+			Source:      domain.SourceDonation,
+			BranchID:    newItem.BranchID,
+			DonationID:  newItem.DonationID,
+			ActorID:     &verifiedByID,
+			Note:        "Batch split saat verifikasi fisik",
+		})
 	}
 
 	if item.DonationID != nil {
@@ -134,7 +188,7 @@ func (u *inventoryUsecase) maybeCompleteDonationVerification(ctx context.Context
 	}
 }
 
-func (u *inventoryUsecase) CreateItemDirectly(ctx context.Context, item *domain.Inventory) (domain.Inventory, error) {
+func (u *inventoryUsecase) CreateItemDirectly(ctx context.Context, item *domain.Inventory, actorID uint) (domain.Inventory, error) {
 	if item.ItemName == "" {
 		return domain.Inventory{}, errors.New("item name is required")
 	}
@@ -157,13 +211,27 @@ func (u *inventoryUsecase) CreateItemDirectly(ctx context.Context, item *domain.
 		}
 	}
 
+	now := time.Now()
 	item.VerifiedPhysical = true // directly created items are verified
+	item.VerifiedAt = &now
 	item.DeliveryStatus = domain.DeliveryUnassigned
 
 	err := u.inventoryRepo.Create(ctx, item)
 	if err != nil {
 		return domain.Inventory{}, err
 	}
+
+	u.recordMovement(ctx, domain.InventoryMovement{
+		InventoryID: &item.ID,
+		ItemName:    item.ItemName,
+		Category:    item.Category,
+		Unit:        item.Unit,
+		Direction:   domain.MovementIn,
+		Quantity:    item.Quantity,
+		Source:      domain.SourceManual,
+		BranchID:    item.BranchID,
+		ActorID:     &actorID,
+	})
 
 	return *item, nil
 }

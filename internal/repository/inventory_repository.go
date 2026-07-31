@@ -50,6 +50,7 @@ func (r *inventoryRepository) VerifyPhysical(ctx context.Context, id uint, verif
 	updates := map[string]interface{}{
 		"verified_physical": true,
 		"verified_by_id":    verifiedByID,
+		"verified_at":       time.Now(),
 	}
 	if expiryDate != nil {
 		updates["expiry_date"] = expiryDate

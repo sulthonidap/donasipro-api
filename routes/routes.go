@@ -34,14 +34,16 @@ func SetupRoutes() *gin.Engine {
 	branchRepo := repository.NewBranchRepository(database.DB)
 	branchReqRepo := repository.NewBranchRequestRepository(database.DB)
 	masterItemRepo := repository.NewMasterItemRepository(database.DB)
+	movementRepo := repository.NewInventoryMovementRepository(database.DB)
 
 	userUsecase := usecase.NewUserUsecase(userRepo)
 	donationUsecase := usecase.NewDonationUsecase(donationRepo, masterItemRepo)
-	inventoryUsecase := usecase.NewInventoryUsecase(inventoryRepo, donationRepo, masterItemRepo)
-	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, inventoryRepo, branchReqRepo)
+	inventoryUsecase := usecase.NewInventoryUsecase(inventoryRepo, donationRepo, masterItemRepo, movementRepo)
+	deliveryUsecase := usecase.NewDeliveryUsecase(deliveryRepo, inventoryRepo, branchReqRepo, movementRepo)
 	branchUsecase := usecase.NewBranchUsecase(branchRepo)
-	branchReqUsecase := usecase.NewBranchRequestUsecase(branchReqRepo, deliveryRepo, inventoryRepo, branchRepo)
+	branchReqUsecase := usecase.NewBranchRequestUsecase(branchReqRepo, deliveryRepo, inventoryRepo, branchRepo, movementRepo)
 	masterItemUsecase := usecase.NewMasterItemUsecase(masterItemRepo)
+	movementUsecase := usecase.NewInventoryMovementUsecase(movementRepo)
 
 	authHandler := delivery.NewAuthHandler(userUsecase)
 	donationHandler := delivery.NewDonationHandler(donationUsecase)
@@ -50,6 +52,7 @@ func SetupRoutes() *gin.Engine {
 	branchHandler := delivery.NewBranchHandler(branchUsecase)
 	branchReqHandler := delivery.NewBranchRequestHandler(branchReqUsecase)
 	masterItemHandler := delivery.NewMasterItemHandler(masterItemUsecase)
+	movementHandler := delivery.NewInventoryMovementHandler(movementUsecase)
 
 	// Health Check Route
 	healthHandler := func(c *gin.Context) {
@@ -98,6 +101,7 @@ func SetupRoutes() *gin.Engine {
 
 		// Inventories
 		api.GET("/v1/inventory", inventoryHandler.List)
+		api.GET("/v1/inventory-movements", movementHandler.List)
 
 		// Deliveries
 		api.GET("/v1/delivery", deliveryHandler.ListAll)
@@ -116,6 +120,7 @@ func SetupRoutes() *gin.Engine {
 			admin.PUT("/branches/:id", branchHandler.Update)
 			admin.DELETE("/branches/:id", branchHandler.Delete)
 			admin.DELETE("/master-items/:id", masterItemHandler.Delete)
+			admin.DELETE("/branch-requests/:id", branchReqHandler.Delete)
 		}
 
 		// Finance only

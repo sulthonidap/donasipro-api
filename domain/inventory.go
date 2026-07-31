@@ -28,6 +28,7 @@ type Inventory struct {
 	Unit             string            `json:"unit"`
 	VerifiedPhysical bool              `json:"verified_physical" gorm:"default:false"`
 	VerifiedByID     *uint             `json:"verified_by_id,omitempty"`
+	VerifiedAt       *time.Time        `json:"verified_at,omitempty"`
 	DeliveryStatus   DeliveryStatus    `json:"delivery_status" gorm:"default:'unassigned'"`
 	ExpiryDate       *time.Time        `json:"expiry_date,omitempty"`
 	CreatedAt        time.Time         `json:"created_at"`
@@ -57,5 +58,5 @@ type InventoryUsecase interface {
 	List(ctx context.Context, category string, verifiedOnly bool) ([]Inventory, error)
 	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error
 	VerifyPhysicalSplit(ctx context.Context, id uint, verifiedByID uint, batches []InventoryBatch) ([]Inventory, error)
-	CreateItemDirectly(ctx context.Context, item *Inventory) (Inventory, error)
+	CreateItemDirectly(ctx context.Context, item *Inventory, actorID uint) (Inventory, error)
 }
