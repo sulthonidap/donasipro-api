@@ -22,6 +22,7 @@ type DonationItemInput struct {
 	Quantity   float64                  `json:"quantity" binding:"required"`
 	Unit       string                   `json:"unit" binding:"required"`
 	ExpiryDate *string                  `json:"expiry_date"` // donor-claimed, still re-verified by logistics
+	PhotoURL   string                   `json:"photo_url"`
 }
 
 type SubmitDonationInput struct {
@@ -70,6 +71,7 @@ func (h *DonationHandler) Submit(c *gin.Context) {
 				Quantity:   item.Quantity,
 				Unit:       item.Unit,
 				ExpiryDate: parseExpiryDate(item.ExpiryDate),
+				PhotoURL:   item.PhotoURL,
 			}
 		}
 	}

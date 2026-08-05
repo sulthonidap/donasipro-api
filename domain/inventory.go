@@ -26,6 +26,7 @@ type Inventory struct {
 	Category         InventoryCategory `json:"category"`
 	Quantity         float64           `json:"quantity"`
 	Unit             string            `json:"unit"`
+	PhotoURL         string            `json:"photo_url,omitempty"`
 	VerifiedPhysical bool              `json:"verified_physical" gorm:"default:false"`
 	VerifiedByID     *uint             `json:"verified_by_id,omitempty"`
 	VerifiedAt       *time.Time        `json:"verified_at,omitempty"`

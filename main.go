@@ -2,6 +2,7 @@ package main
 
 import (
 	"clean-api/database"
+	"clean-api/internal/storage"
 	"clean-api/routes"
 	"log"
 	"os"
@@ -25,8 +26,14 @@ func main() {
 	// Migrate Models (using the new database migration function)
 	database.Migrate()
 
+	// Connect to MinIO (optional — donation photo upload stays disabled if unset)
+	minioStorage, err := storage.NewMinioStorage()
+	if err != nil {
+		log.Println("MinIO tidak aktif:", err)
+	}
+
 	// Setup Router
-	r := routes.SetupRoutes()
+	r := routes.SetupRoutes(minioStorage)
 
 	// Start Server
 	port := os.Getenv("PORT")

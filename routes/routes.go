@@ -7,6 +7,7 @@ import (
 	"clean-api/database"
 	"clean-api/internal/delivery"
 	"clean-api/internal/repository"
+	"clean-api/internal/storage"
 	"clean-api/internal/usecase"
 	"clean-api/middleware"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes() *gin.Engine {
+func SetupRoutes(minioStorage *storage.MinioStorage) *gin.Engine {
 	r := gin.Default()
 
 	// CORS Config
@@ -53,6 +54,7 @@ func SetupRoutes() *gin.Engine {
 	branchReqHandler := delivery.NewBranchRequestHandler(branchReqUsecase)
 	masterItemHandler := delivery.NewMasterItemHandler(masterItemUsecase)
 	movementHandler := delivery.NewInventoryMovementHandler(movementUsecase)
+	uploadHandler := delivery.NewUploadHandler(minioStorage)
 
 	// Health Check Route
 	healthHandler := func(c *gin.Context) {
@@ -102,6 +104,9 @@ func SetupRoutes() *gin.Engine {
 		// Inventories
 		api.GET("/v1/inventory", inventoryHandler.List)
 		api.GET("/v1/inventory-movements", movementHandler.List)
+
+		// Uploads
+		api.POST("/v1/uploads/donation-photo", uploadHandler.PresignDonationPhoto)
 
 		// Deliveries
 		api.GET("/v1/delivery", deliveryHandler.ListAll)
