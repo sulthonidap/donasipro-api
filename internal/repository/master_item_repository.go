@@ -27,6 +27,10 @@ func (r *masterItemRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&domain.MasterItem{}, id).Error
 }
 
+func (r *masterItemRepository) DeleteAll(ctx context.Context) error {
+	return r.db.WithContext(ctx).Where("1 = 1").Delete(&domain.MasterItem{}).Error
+}
+
 func (r *masterItemRepository) GetByID(ctx context.Context, id uint) (domain.MasterItem, error) {
 	var item domain.MasterItem
 	err := r.db.WithContext(ctx).First(&item, id).Error

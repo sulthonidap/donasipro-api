@@ -46,7 +46,7 @@ func (r *inventoryRepository) Update(ctx context.Context, item *domain.Inventory
 	return r.db.WithContext(ctx).Save(item).Error
 }
 
-func (r *inventoryRepository) VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error {
+func (r *inventoryRepository) VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time, photoURL *string) error {
 	updates := map[string]interface{}{
 		"verified_physical": true,
 		"verified_by_id":    verifiedByID,
@@ -54,6 +54,9 @@ func (r *inventoryRepository) VerifyPhysical(ctx context.Context, id uint, verif
 	}
 	if expiryDate != nil {
 		updates["expiry_date"] = expiryDate
+	}
+	if photoURL != nil {
+		updates["photo_url"] = *photoURL
 	}
 	return r.db.WithContext(ctx).Model(&domain.Inventory{}).Where("id = ?", id).Updates(updates).Error
 }

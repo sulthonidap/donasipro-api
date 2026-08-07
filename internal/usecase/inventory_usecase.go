@@ -39,7 +39,7 @@ func (u *inventoryUsecase) List(ctx context.Context, category string, verifiedOn
 	return u.inventoryRepo.List(ctx, category, verifiedOnly)
 }
 
-func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error {
+func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time, photoURL *string) error {
 	item, err := u.inventoryRepo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func (u *inventoryUsecase) VerifyPhysical(ctx context.Context, id uint, verified
 		return errors.New("item is already physically verified")
 	}
 
-	err = u.inventoryRepo.VerifyPhysical(ctx, id, verifiedByID, expiryDate)
+	err = u.inventoryRepo.VerifyPhysical(ctx, id, verifiedByID, expiryDate, photoURL)
 	if err != nil {
 		return err
 	}
@@ -106,6 +106,9 @@ func (u *inventoryUsecase) VerifyPhysicalSplit(ctx context.Context, id uint, ver
 
 	item.Quantity = batches[0].Quantity
 	item.ExpiryDate = batches[0].ExpiryDate
+	if batches[0].PhotoURL != "" {
+		item.PhotoURL = batches[0].PhotoURL
+	}
 	item.VerifiedPhysical = true
 	item.VerifiedByID = &verifiedByID
 	item.VerifiedAt = &now
@@ -135,6 +138,7 @@ func (u *inventoryUsecase) VerifyPhysicalSplit(ctx context.Context, id uint, ver
 			Category:         item.Category,
 			Quantity:         b.Quantity,
 			Unit:             item.Unit,
+			PhotoURL:         b.PhotoURL,
 			VerifiedPhysical: true,
 			VerifiedByID:     &verifiedByID,
 			VerifiedAt:       &now,

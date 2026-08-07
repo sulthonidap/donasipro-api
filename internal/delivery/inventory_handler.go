@@ -37,6 +37,7 @@ func (h *InventoryHandler) List(c *gin.Context) {
 
 type VerifyPhysicalInput struct {
 	ExpiryDate *string `json:"expiry_date"`
+	PhotoURL   *string `json:"photo_url"`
 }
 
 func parseExpiryDate(raw *string) *time.Time {
@@ -78,7 +79,7 @@ func (h *InventoryHandler) VerifyPhysical(c *gin.Context) {
 	expTime := parseExpiryDate(input.ExpiryDate)
 	verifiedByID := userIDFromContext(c)
 
-	err = h.inventoryUsecase.VerifyPhysical(c.Request.Context(), uint(id), verifiedByID, expTime)
+	err = h.inventoryUsecase.VerifyPhysical(c.Request.Context(), uint(id), verifiedByID, expTime, input.PhotoURL)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -91,6 +92,7 @@ type VerifyPhysicalSplitInput struct {
 	Batches []struct {
 		Quantity   float64 `json:"quantity" binding:"required"`
 		ExpiryDate *string `json:"expiry_date"`
+		PhotoURL   string  `json:"photo_url"`
 	} `json:"batches" binding:"required,min=1"`
 }
 
@@ -113,6 +115,7 @@ func (h *InventoryHandler) VerifyPhysicalSplit(c *gin.Context) {
 		batches[i] = domain.InventoryBatch{
 			Quantity:   b.Quantity,
 			ExpiryDate: parseExpiryDate(b.ExpiryDate),
+			PhotoURL:   b.PhotoURL,
 		}
 	}
 

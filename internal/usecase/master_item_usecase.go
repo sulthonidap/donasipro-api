@@ -69,6 +69,10 @@ func (u *masterItemUsecase) Delete(ctx context.Context, id uint) error {
 	return u.masterItemRepo.Delete(ctx, id)
 }
 
+func (u *masterItemUsecase) DeleteAll(ctx context.Context) error {
+	return u.masterItemRepo.DeleteAll(ctx)
+}
+
 func (u *masterItemUsecase) GetByID(ctx context.Context, id uint) (domain.MasterItem, error) {
 	return u.masterItemRepo.GetByID(ctx, id)
 }
@@ -79,6 +83,15 @@ func (u *masterItemUsecase) List(ctx context.Context) ([]domain.MasterItem, erro
 
 func (u *masterItemUsecase) BulkCreate(ctx context.Context, items []domain.MasterItem) (domain.MasterItemBulkResult, error) {
 	result := domain.MasterItemBulkResult{}
+
+	existing, err := u.masterItemRepo.List(ctx)
+	if err != nil {
+		return result, err
+	}
+	usedSKUs := make(map[string]bool, len(existing))
+	for _, e := range existing {
+		usedSKUs[e.SKUCode] = true
+	}
 
 	for i, item := range items {
 		name := strings.TrimSpace(item.Name)
@@ -100,11 +113,25 @@ func (u *masterItemUsecase) BulkCreate(ctx context.Context, items []domain.Maste
 			unit = "Pcs"
 		}
 
+		// SKU comes from the imported file (e.g. "No Barang") when provided;
+		// since that source data isn't guaranteed unique, collisions get a
+		// numeric suffix rather than silently dropping the product.
+		baseSKU := strings.TrimSpace(item.SKUCode)
+		if baseSKU == "" {
+			baseSKU = fmt.Sprintf("SKU-BULK-%d-%d", time.Now().UnixNano()%1000000, i)
+		}
+		sku := baseSKU
+		for suffix := 2; usedSKUs[sku]; suffix++ {
+			sku = fmt.Sprintf("%s-%d", baseSKU, suffix)
+		}
+		usedSKUs[sku] = true
+
 		newItem := domain.MasterItem{
-			SKUCode:     fmt.Sprintf("SKU-BULK-%d-%d", time.Now().UnixNano()%1000000, i),
+			SKUCode:     sku,
 			Name:        name,
 			Category:    item.Category,
 			Unit:        unit,
+			Price:       item.Price,
 			Description: item.Description,
 		}
 		if err := u.masterItemRepo.Create(ctx, &newItem); err != nil {

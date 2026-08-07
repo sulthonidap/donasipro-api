@@ -42,6 +42,7 @@ type Inventory struct {
 type InventoryBatch struct {
 	Quantity   float64
 	ExpiryDate *time.Time
+	PhotoURL   string
 }
 
 type InventoryRepository interface {
@@ -49,7 +50,7 @@ type InventoryRepository interface {
 	GetByID(ctx context.Context, id uint) (Inventory, error)
 	List(ctx context.Context, category string, verifiedOnly bool) ([]Inventory, error)
 	Update(ctx context.Context, item *Inventory) error
-	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error
+	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time, photoURL *string) error
 	UpdateDeliveryStatus(ctx context.Context, id uint, status DeliveryStatus) error
 	FindByNameInPusat(ctx context.Context, itemName string) ([]Inventory, error)
 	DeductQuantity(ctx context.Context, id uint, amount float64) error
@@ -57,7 +58,7 @@ type InventoryRepository interface {
 
 type InventoryUsecase interface {
 	List(ctx context.Context, category string, verifiedOnly bool) ([]Inventory, error)
-	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time) error
+	VerifyPhysical(ctx context.Context, id uint, verifiedByID uint, expiryDate *time.Time, photoURL *string) error
 	VerifyPhysicalSplit(ctx context.Context, id uint, verifiedByID uint, batches []InventoryBatch) ([]Inventory, error)
 	CreateItemDirectly(ctx context.Context, item *Inventory, actorID uint) (Inventory, error)
 }

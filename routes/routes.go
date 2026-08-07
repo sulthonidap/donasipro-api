@@ -125,6 +125,7 @@ func SetupRoutes(minioStorage *storage.MinioStorage) *gin.Engine {
 			admin.PUT("/branches/:id", branchHandler.Update)
 			admin.DELETE("/branches/:id", branchHandler.Delete)
 			admin.DELETE("/master-items/:id", masterItemHandler.Delete)
+			admin.DELETE("/master-items", masterItemHandler.DeleteAll)
 			admin.DELETE("/branch-requests/:id", branchReqHandler.Delete)
 		}
 

@@ -104,3 +104,12 @@ func (h *MasterItemHandler) Delete(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Barang master berhasil dihapus"})
 }
+
+func (h *MasterItemHandler) DeleteAll(c *gin.Context) {
+	if err := h.masterItemUsecase.DeleteAll(c.Request.Context()); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Seluruh katalog master barang berhasil dikosongkan"})
+}
